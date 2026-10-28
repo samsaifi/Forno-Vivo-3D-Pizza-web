@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Forno Vivo — Immersive 3D Dining Experience</title>
+<meta name="description" content="Forno Vivo: step inside an immersive 3D Italian pizzeria. Choose your table, browse the menu, watch your pizza bake in a wood-fired oven, and pay — all in your browser.">
+<meta property="og:title" content="Forno Vivo — An Immersive 3D Dining Experience">
+<meta property="og:description" content="Your table is waiting. Your pizza is calling.">
+<meta property="og:type" content="restaurant.restaurant">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Restaurant","name":"Forno Vivo","servesCuisine":"Italian","priceRange":"$$","address":{"@type":"PostalAddress","streetAddress":"12 Via del Forno","addressLocality":"Sample City","addressCountry":"IT"},"openingHours":"Mo-Su 12:00-23:00"}
+</script>
+<style>
+:root{
+  --red:#C92A22; --cream:#FFF4E4; --char:#201B18; --wood:#75452D;
+  --green:#426B42; --gold:#F4C65B; --panel:rgba(255,244,228,.97);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#1a1512;font-family:'Inter',sans-serif;color:var(--char)}
+#c{position:fixed;inset:0}
+canvas{display:block;touch-action:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#fade{position:fixed;inset:0;background:#120d0a;opacity:0;pointer-events:none;transition:opacity .7s;z-index:60}
+#fade.on{opacity:1;pointer-events:all}
+#busy{position:fixed;inset:0;display:none;place-items:center;background:rgba(18,13,10,.55);z-index:70;color:var(--cream);font-weight:600;letter-spacing:.5px}
+#busy.on{display:grid}
+.spin{width:34px;height:34px;border:3px solid rgba(255,244,228,.3);border-top-color:var(--gold);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* ---------- top bar ---------- */
+#topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:10px 14px;z-index:40;background:linear-gradient(rgba(18,13,10,.82),rgba(18,13,10,0));pointer-events:none}
+#topbar>*{pointer-events:auto}
+.brand{font-family:'Playfair Display',serif;font-weight:800;color:var(--cream);font-size:19px;letter-spacing:.5px}
+.brand b{color:var(--gold)}
+.chip{background:rgba(255,244,228,.14);border:1px solid rgba(255,244,228,.25);color:var(--cream);font-size:12px;padding:5px 11px;border-radius:99px;font-weight:600}
+#stageLabel{font-size:12px;color:rgba(255,244,228,.85)}
+#topbar .sp{flex:1}
+.tbtn{background:rgba(255,244,228,.12);border:1px solid rgba(255,244,228,.28);color:var(--cream);border-radius:99px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.tbtn:hover{background:rgba(255,244,228,.24)}
+.tbtn .bdg{background:var(--red);border-radius:99px;padding:1px 7px;font-size:11px;margin-left:5px}
+/* ---------- panels ---------- */
+.panel{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);width:min(560px,94vw);background:var(--panel);border-radius:20px;padding:22px 22px 18px;box-shadow:0 18px 60px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.35s;z-index:45;max-height:76vh;overflow:auto}
+.panel.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.panel h2{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:6px}
+.panel p.sub{font-size:13.5px;color:#6b5a4a;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;border-radius:12px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+.btn.primary{background:var(--red);color:var(--cream)}
+.btn.primary:hover{background:#a92219}
+.btn.gold{background:var(--gold);color:var(--char)}
+.btn.ghost{background:transparent;border:1.5px solid #cbb79e;color:var(--char)}
+.btn.ghost:hover{background:#f1e4cf}
+.btn.small{padding:7px 12px;font-size:12.5px;border-radius:9px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.note{font-size:12px;color:#8a7460;margin-top:10px}
+/* intro */
+#introPanel{background:transparent;box-shadow:none;text-align:center;bottom:auto;top:50%;transform:translate(-50%,-42%)}
+#introPanel.show{transform:translate(-50%,-50%)}
+#introPanel .logo{font-family:'Playfair Display',serif;font-size:clamp(44px,9vw,76px);font-weight:800;color:var(--cream);text-shadow:0 4px 30px rgba(0,0,0,.5)}
+#introPanel .logo b{color:var(--gold)}
+#introPanel .tag{color:var(--cream);opacity:.92;font-size:16px;margin:6px 0 4px;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+#introPanel .hint{color:rgba(255,244,228,.65);font-size:12.5px;margin-top:14px}
+/* dialogue */
+#dialogueText{font-size:15.5px;line-height:1.55;background:#fff;border-left:4px solid var(--red);padding:12px 14px;border-radius:0 12px 12px 0;margin-bottom:4px}
+.who{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--red);text-transform:uppercase;margin-bottom:8px}
+/* menu */
+#menuTabs{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 12px}
+.tab{border:1.5px solid #d8c3a5;background:#fff;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#6b5a4a}
+.tab.sel{background:var(--char);color:var(--cream);border-color:var(--char)}
+.mi{display:flex;justify-content:space-between;gap:12px;padding:11px 4px;border-bottom:1px dashed #e3d3ba;cursor:pointer;align-items:baseline}
+.mi:hover{background:#fdf6ea}
+.mi .n{font-weight:700;font-size:14px}
+.mi .d{font-size:12px;color:#8a7460;margin-top:2px}
+.mi .p{font-weight:700;color:var(--red);white-space:nowrap}
+.vdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:1px}
+.pill{border:1.5px solid #d8c3a5;background:#fff;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.pill.sel{background:var(--char);color:var(--gold);border-color:var(--char)}
+.optrow{margin:12px 0 4px}
+.optrow .lbl{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#8a7460;margin-bottom:7px;display:block}
+.topp{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;font-size:13.5px;border-bottom:1px dashed #eee0c8}
+.price{font-weight:700;font-size:20px;color:var(--red)}
+.qty{display:inline-flex;align-items:center;gap:12px;border:1.5px solid #d8c3a5;border-radius:10px;padding:6px 12px;font-weight:700}
+.qty button{border:none;background:none;font-size:18px;cursor:pointer;font-family:inherit}
+input[type=text]{width:100%;border:1.5px solid #d8c3a5;border-radius:10px;padding:10px 12px;font-size:13.5px;font-family:inherit;background:#fff;margin-top:6px}
+/* cart / bill rows */
+.crow{display:flex;justify-content:space-between;gap:10px;padding:10px 2px;border-bottom:1px dashed #e3d3ba;font-size:13.5px;align-items:flex-start}
+.crow .l b{font-size:14px}
+.crow .l .o{font-size:11.5px;color:#8a7460;margin-top:2px}
+.tot{display:flex;justify-content:space-between;font-size:13.5px;padding:3px 2px}
+.tot.big{font-size:17px;font-weight:800;border-top:2px solid var(--char);margin-top:8px;padding-top:9px}
+/* kitchen */
+.ksteps{list-style:none;margin:12px 0}
+.ksteps li{padding:7px 10px;font-size:13.5px;border-radius:9px;color:#9a8874;display:flex;gap:9px;align-items:center}
+.ksteps li::before{content:'○'}
+.ksteps li.act{color:var(--char);background:#fdf0da;font-weight:700}
+.ksteps li.act::before{content:'◉';color:var(--red)}
+.ksteps li.done{color:var(--green)}
+.ksteps li.done::before{content:'✓'}
+.bar{height:8px;background:#eadbc2;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--gold));width:0%;transition:width .4s;border-radius:99px}
+/* dining bar */
+#diningBar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:14px}
+/* toast */
+#toast{position:fixed;top:64px;left:50%;transform:translate(-50%,-12px);background:var(--char);color:var(--cream);padding:11px 20px;border-radius:12px;font-size:13.5px;font-weight:600;opacity:0;transition:.3s;z-index:80;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#skipServe{position:fixed;top:56px;right:14px;z-index:46;display:none}
+#resumeBanner{top:26px;bottom:auto}
+/* receipt */
+#receiptBody{background:#fff;border:1.5px dashed #cbb79e;border-radius:12px;padding:14px;font-size:12.5px;line-height:1.65;white-space:pre-wrap;font-family:'IBM Plex Mono',monospace,monospace;max-height:34vh;overflow:auto}
+/* tables info */
+#tableInfo{background:#fff;border-radius:14px;padding:14px;border:1.5px solid #eadbc2;margin-bottom:4px}
+#tableInfo .tn{font-family:'Playfair Display',serif;font-size:19px;font-weight:800}
+.stat{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}
+.stat.available{background:#e2f2e2;color:var(--green)}
+.stat.occupied{background:#eee;color:#777}
+.stat.unavailable{background:#f9e2e0;color:var(--red)}
+.stepper{display:inline-flex;align-items:center;gap:14px;border:1.5px solid #d8c3a5;border-radius:12px;padding:8px 14px;font-weight:700;font-size:15px}
+.stepper button{border:none;background:none;font-size:20px;cursor:pointer;font-family:inherit;color:var(--red)}
+@media (max-width:720px){
+  .panel{left:0;right:0;bottom:0;transform:translateY(16px);width:auto;max-width:none;border-radius:20px 20px 0 0;max-height:70vh;padding:18px 16px 14px}
+  .panel.show{transform:translateY(0)}
+  #introPanel{left:0;right:0;width:auto;transform:translateY(-42%)}
+  #introPanel.show{transform:translateY(-50%)}
+  .brand{font-size:16px}
+  #stageLabel{display:none}
+}
+</style>
+</head>
+<body>
+<div id="c"></div>
+<div id="fade"></div>
+<div id="busy"><div><div class="spin"></div><span id="busyTxt">Sending to kitchen…</span></div></div>
+
+<nav id="topbar" aria-label="Restaurant controls">
+  <span class="brand">Forno <b>Vivo</b></span>
+  <span class="chip" id="stageLabel"></span>
+  <span class="chip" id="tableChip" style="display:none"></span>
+  <span class="sp"></span>
+  <button class="tbtn" id="btnMenuTop">Menu</button>
+  <button class="tbtn" id="btnCartTop">Cart<span class="bdg" id="cartCount">0</span></button>
+  <button class="tbtn" id="btnBillTop" style="display:none">Bill</button>
+  <button class="tbtn" id="btnSound" aria-label="Toggle sound">🔊</button>
+  <button class="tbtn" id="btnExitTop">Exit</button>
+</nav>
+<button class="tbtn" id="skipServe">Skip animation ⏭</button>
+
+<!-- SCENE 1 -->
+<section class="panel" id="introPanel" aria-label="Welcome">
+  <div class="logo">Forno <b>Vivo</b></div>
+  <div class="tag">Your table is waiting. Your pizza is calling.</div>
+  <div class="row" style="justify-content:center">
+    <button class="btn primary" id="btnEnter">ENTER THE RESTAURANT</button>
+    <button class="btn ghost" id="btnViewMenu" style="border-color:rgba(255,244,228,.5);color:var(--cream)">View Menu</button>
+  </div>
+  <div class="hint">Step inside for an immersive dining experience · drag to rotate dishes</div>
+</section>
+
+<section class="panel" id="resumeBanner" aria-label="Resume session">
+  <h2>Welcome back!</h2><p class="sub" id="resumeText"></p>
+  <div class="row"><button class="btn primary" id="btnResume">Resume My Visit</button><button class="btn ghost" id="btnFresh">Start Fresh</button></div>
+</section>
+
+<!-- Flexible waiter dialogue (Scenes 2,4,9,10,11,13) -->
+<section class="panel" id="dialoguePanel" aria-live="polite">
+  <div class="who">🧑‍🍳 Marco · Your waiter</div>
+  <div id="dialogueText"></div>
+  <div class="row" id="dialogueChoices"></div>
+</section>
+
+<section class="panel" id="specialsPanel">
+  <h2>Today's Specials</h2><p class="sub">Hand-picked by our chef, fresh from the market.</p>
+  <div id="specialsList"></div>
+  <div class="row"><button class="btn ghost" id="btnCloseSpecials">Close</button></div>
+</section>
+
+<!-- SCENE 3 -->
+<section class="panel" id="tablePanel">
+  <h2>Choose Your Table</h2><p class="sub">Tap any glowing table in the room, or confirm the suggestion below.</p>
+  <div id="tableInfo"></div>
+  <div class="optrow"><span class="lbl">How many guests?</span>
+    <span class="stepper"><button id="guestsMinus" aria-label="Fewer guests">−</button><span id="guestsVal">2</span><button id="guestsPlus" aria-label="More guests">+</button></span>
+  </div>
+  <div class="row"><button class="btn primary" id="btnConfirmTable">SELECT THIS TABLE</button><button class="btn ghost" id="btnBackToWelcome">Back</button></div>
+  <div class="note">Green dot = available · Grey = occupied · Red = unavailable</div>
+</section>
+
+<!-- SCENES 5 & 6 -->
+<section class="panel" id="menuPanel" style="width:min(640px,96vw)">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">Our Menu</h2><button class="btn ghost small" id="menuClose" style="display:none">✕ Close</button>
+  </div>
+  <p class="sub" id="menuNote" style="display:none">You're browsing from outside — step inside and take a seat to order.</p>
+  <div id="menuTabs"></div>
+  <div id="menuItems"></div>
+  <div id="itemDetail" style="display:none"></div>
+</section>
+
+<!-- SCENE 7 -->
+<section class="panel" id="cartPanel">
+  <h2>Your Order</h2><p class="sub">Review everything before it goes to the kitchen.</p>
+  <div id="cartList"></div>
+  <div id="cartTotals" style="margin-top:10px"></div>
+  <div class="row"><button class="btn primary" id="btnConfirmOrder">CONFIRM ORDER →</button><button class="btn ghost" id="btnAddMoreDishes">Add More Dishes</button><button class="btn ghost" id="btnCloseCart">Keep Browsing</button></div>
+  <div class="note">Prices & availability are re-validated by the server when you confirm.</div>
+</section>
+
+<section class="panel" id="orderDonePanel">
+  <h2>Your order is on its way to our kitchen! 🍕</h2>
+  <p class="sub">Order <b id="orderNum"></b> · Estimated prep: <b id="orderEta"></b></p>
+  <div class="row"><button class="btn primary" id="btnWatchKitchen">Watch the Kitchen</button><button class="btn ghost" id="btnBrowseMore">Browse More</button></div>
+</section>
+
+<!-- SCENE 8 -->
+<section class="panel" id="kitchenPanel">
+  <h2>Kitchen Live Status</h2>
+  <ul class="ksteps" id="kSteps"></ul>
+  <div class="bar"><i id="kBar"></i></div>
+  <p class="note" id="kNote">Simulated kitchen progress for this demo — in production this reflects real kitchen tickets.</p>
+  <div class="row"><button class="btn ghost small" id="btnSkipWait">Skip the wait ⏭</button></div>
+</section>
+
+<!-- SCENE 10 -->
+<nav class="panel" id="diningBar" aria-label="Dining actions" style="padding:12px">
+  <button class="btn primary" id="btnMenuDine">🍽 Menu</button>
+  <button class="btn ghost" id="btnWater">💧 Water</button>
+  <button class="btn ghost" id="btnNapkin">🧻 Napkins</button>
+  <button class="btn ghost" id="btnAssist">🙋 Assistance</button>
+  <button class="btn gold" id="btnBill">Request the Bill</button>
+</nav>
+
+<!-- SCENES 11–12 -->
+<section class="panel" id="billPanel">
+  <h2>Your Bill</h2><p class="sub" id="billRef"></p>
+  <div id="billList"></div><div id="billTotals" style="margin-top:8px"></div>
+  <div class="optrow"><span class="lbl">Add a tip for the kitchen & staff (optional)</span><div class="row" id="tipRow" style="margin-top:2px"></div></div>
+  <div class="row"><button class="btn primary" id="btnPayNow">Pay Now</button><button class="btn ghost" id="btnKeepDining">Keep Dining</button></div>
+</section>
+
+<section class="panel" id="payPanel">
+  <h2>Checkout</h2><p class="sub">Amount due: <b class="price" id="payAmount"></b></p>
+  <div class="row" id="payMethods">
+    <button class="pill sel" data-m="card">💳 Card</button>
+    <button class="pill" data-m="wallet">📱 Wallet</button>
+    <button class="pill" data-m="cash">💵 Cash at counter</button>
+  </div>
+  <div id="cardForm">
+    <input type="text" id="cardName" placeholder="Name on card" autocomplete="cc-name">
+    <input type="text" id="cardNum" placeholder="Card number  ··  try CVV 000 to test a failure" inputmode="numeric" maxlength="19">
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="cardExp" placeholder="MM/YY" maxlength="5" style="width:110px">
+      <input type="text" id="cardCvc" placeholder="CVV" maxlength="3" inputmode="numeric" style="width:90px">
+    </div>
+  </div>
+  <div id="cashNote" class="note" style="display:none">Cash marks the bill <b>pending</b> until staff confirms receipt (simulated below).</div>
+  <div id="payStatus" class="note"></div>
+  <div class="row"><button class="btn primary" id="btnPaySubmit">Pay Securely</button><button class="btn ghost" id="btnBackToBill">Back</button></div>
+  <div class="note">🔒 Demo sandbox — no real payment is processed and no card data is stored or sent anywhere.</div>
+</section>
+
+<section class="panel" id="receiptPanel">
+  <h2>Payment complete. Thank you for dining with us! ✅</h2>
+  <p class="sub" id="receiptSub"></p>
+  <div id="receiptBody"></div>
+  <div class="row"><button class="btn primary" id="btnDownloadReceipt">⬇ Download Receipt</button><button class="btn gold" id="btnLeaveAfterPay">Leave the Restaurant</button><button class="btn ghost" id="btnCloseReceipt">Close</button></div>
+</section>
+
+<!-- SCENE 13 -->
+<section class="panel" id="farewellPanel" style="background:transparent;box-shadow:none;text-align:center">
+  <div class="logo" style="font-family:'Playfair Display',serif;font-size:clamp(36px,7vw,58px);color:var(--cream);font-weight:800">Grazie! <b style="color:var(--gold)">Come Back Hungry.</b></div>
+  <div class="tag" style="color:rgba(255,244,228,.85);margin:8px 0 4px">Great pizza, warm company, and a table waiting just for you.</div>
+  <div class="row" style="justify-content:center">
+    <button class="btn primary" id="btnNewVisit">Start a New Visit</button>
+    <button class="btn ghost" id="btnViewReceipt2" style="border-color:rgba(255,244,228,.5);color:var(--cream)">View Receipt</button>
+  </div>
+</section>
+
+<div id="toast" role="status"></div>
+<div id="announcer" class="sr-only" aria-live="polite"></div>
+<div id="webglError" class="panel" style="display:none"><h2>3D not available</h2><p class="sub">Your browser couldn't start WebGL. The full menu is below — but the immersive room needs WebGL.</p><div id="htmlMenu"></div></div>
+
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ============ tiny helpers ============ */
+const $=id=>document.getElementById(id);
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const fmt=n=>'$'+n.toFixed(2);
+const rand=(a,b)=>a+Math.random()*(b-a);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const linear=t=>t;
+const anims=new Set();
+function animate(dur,upd,done,easeFn=ease){const a={t0:performance.now(),dur:Math.max(1,dur),upd,done,e:easeFn};anims.add(a);return a;}
+function stepAnims(now){for(const a of [...anims]){let t=(now-a.t0)/a.dur;if(t>=1){a.upd(1);anims.delete(a);a.done&&a.done();}else a.upd(a.e(Math.max(0,t)));}}
+let audioOn=true,actx=null;
+function chime(f=880,d=.18,type='sine',v=.07){if(!audioOn)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(actx.destination);const t=actx.currentTime;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.start(t);o.stop(t+d);}catch(e){}}
+function showToast(m,ms=2600){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),ms);}
+const announce=m=>$('announcer').textContent=m;
+function busy(on,txt='Sending to kitchen…'){$('busyTxt').textContent=txt;$('busy').classList.toggle('on',on);}
+
+/* ============ menu data (in production: served by backend API) ============ */
+const CATS=[['signature','Signature Pizzas'],['classic','Classic Pizzas'],['veg','Vegetarian Pizzas'],['gourmet','Gourmet Pizzas'],['pasta','Pasta'],['starter','Appetizers'],['salad','Salads'],['dessert','Desserts'],['drinks','Drinks']];
+const MENU=[
+ {id:'margherita',cat:'signature',name:'Margherita Vivo',price:12.5,veg:1,allerg:'Gluten, Dairy',prep:12,pizza:1,desc:'San Marzano tomato, fior di latte, fresh basil, extra-virgin olive oil.'},
+ {id:'inferno',cat:'signature',name:'Spicy Inferno',price:14.9,allerg:'Gluten, Dairy',prep:14,pizza:1,desc:'Spicy tomato sauce, cupping pepperoni, Calabrian chili, mozzarella.'},
+ {id:'truffle',cat:'signature',name:'Truffle Mushroom',price:16.5,veg:1,allerg:'Gluten, Dairy',prep:15,pizza:1,desc:'Roasted mushrooms, truffle oil, mozzarella, thyme.'},
+ {id:'pepperoni',cat:'classic',name:'Pepperoni Classic',price:13.9,allerg:'Gluten, Dairy',prep:12,pizza:1,desc:'Cupping pepperoni, mozzarella, rich tomato sauce.'},
+ {id:'formaggi',cat:'classic',name:'Quattro Formaggi',price:14.5,veg:1,allerg:'Gluten, Dairy',prep:13,pizza:1,desc:'Mozzarella, gorgonzola, parmesan and ricotta.'},
+ {id:'prosciutto',cat:'classic',name:'Prosciutto e Rucola',price:15.9,allerg:'Gluten, Dairy',prep:13,pizza:1,desc:'Parma ham, wild arugula, shaved parmesan, balsamic glaze.'},
+ {id:'garden',cat:'veg',name:'Garden Veggie',price:13.5,veg:1,allerg:'Gluten, Dairy',prep:12,pizza:1,desc:'Bell peppers, mushrooms, olives, onions, mozzarella.'},
+ {id:'ortolana',cat:'veg',name:'Ortolana',price:13.9,veg:1,allerg:'Gluten, Dairy',prep:12,pizza:1,desc:'Grilled zucchini, eggplant, roasted peppers, basil pesto.'},
+ {id:'burrata',cat:'gourmet',name:'Burrata e Pistacchio',price:17.5,veg:1,allerg:'Gluten, Dairy, Nuts',prep:15,pizza:1,desc:'Creamy burrata, pistachio pesto, stracciatella, basil oil.'},
+ {id:'napoli',cat:'gourmet',name:'Napoli Antica',price:15.5,allerg:'Gluten, Dairy, Fish',prep:13,pizza:1,desc:'Anchovy, capers, oregano, double tomato.'},
+ {id:'pomodoro',cat:'pasta',name:'Spaghetti Pomodoro',price:11.9,veg:1,allerg:'Gluten, Dairy',prep:11,desc:'Al dente spaghetti, slow-cooked tomato, basil, parmesan.'},
+ {id:'arrabbiata',cat:'pasta',name:'Penne Arrabbiata',price:12.9,veg:1,allerg:'Gluten',prep:11,desc:'Spicy garlic-tomato sauce, chili, olive oil, parsley.'},
+ {id:'alfredo',cat:'pasta',name:'Fettuccine Alfredo',price:14.5,allerg:'Gluten, Dairy',prep:13,desc:'Silky butter-parmesan cream, cracked pepper.'},
+ {id:'garlicbread',cat:'starter',name:'Garlic Bread',price:5.5,veg:1,allerg:'Gluten, Dairy',prep:6,desc:'Wood-oven focaccia, roasted garlic butter, herbs.'},
+ {id:'bruschetta',cat:'starter',name:'Bruschetta Trio',price:7.9,veg:1,allerg:'Gluten',prep:7,desc:'Tomato-basil, olive tapenade, whipped ricotta.'},
+ {id:'arancini',cat:'starter',name:'Arancini',price:8.5,veg:1,allerg:'Gluten, Dairy, Eggs',prep:9,desc:'Crispy saffron risotto balls, marinara dip.'},
+ {id:'mista',cat:'salad',name:'Insalata Mista',price:7.5,veg:1,allerg:'—',prep:5,desc:'Seasonal greens, tomato, cucumber, red-wine vinaigrette.'},
+ {id:'caesar',cat:'salad',name:'Caesar',price:9.5,allerg:'Gluten, Dairy, Eggs, Fish',prep:6,desc:'Crisp romaine, parmesan, sourdough croutons, anchovy dressing.'},
+ {id:'tiramisu',cat:'dessert',name:'Tiramisù',price:7.5,veg:1,allerg:'Gluten, Dairy, Eggs',prep:5,desc:'Espresso-soaked savoiardi, mascarpone cream, cocoa.'},
+ {id:'cheesecake',cat:'dessert',name:'New York Cheesecake',price:7.9,veg:1,allerg:'Gluten, Dairy, Eggs',prep:5,desc:'Vanilla bean cheesecake, amaretti crumble.'},
+ {id:'gelato',cat:'dessert',name:'Gelato Trio',price:6.9,veg:1,allerg:'Dairy',prep:3,desc:'Pistachio, stracciatella and lemon sorbetto.'},
+ {id:'pellegrino',cat:'drinks',name:'San Pellegrino 500ml',price:3.5,allerg:'—',prep:2,desc:'Sparkling natural mineral water.'},
+ {id:'soda',cat:'drinks',name:'Italian Soda',price:3.9,allerg:'—',prep:2,desc:'Aranciata or Limonata, lightly carbonated.'},
+ {id:'espresso',cat:'drinks',name:'Espresso',price:2.9,veg:1,allerg:'—',prep:3,desc:'Dark-roast Neapolitan blend.'},
+ {id:'cappuccino',cat:'drinks',name:'Cappuccino',price:4.2,veg:1,allerg:'Dairy',prep:4,desc:'Double espresso, velvety steamed milk.'},
+ {id:'lemonade',cat:'drinks',name:'Fresh Lemonade',price:4.5,veg:1,allerg:'—',prep:3,desc:'Sicilian lemons, mint, still or sparkling.'},
+];
+const SPECIALS=[
+ {id:'truffle',blurb:'Chef Antonio’s black-truffle season pick.'},
+ {id:'burrata',blurb:'Pistachio pesto made fresh this morning. Limited availability.'},
+ {id:'tiramisu',blurb:'Made at 6am daily. Somehow always sells out.'},
+];
+const SIZES={small:{label:'Small 10"',factor:.8},medium:{label:'Medium 13"',factor:1},large:{label:'Large 16"',factor:1.25}};
+const CRUSTS={classic:{label:'Classic',add:0},thin:{label:'Thin',add:0},thick:{label:'Thick',add:1.5},stuffed:{label:'Stuffed',add:2.5}};
+const TOPPINGS=[['mozzarella','Extra Mozzarella',1.25],['mushrooms','Mushrooms',1],['olives','Olives',.9],['peppers','Bell Peppers',.9],['onions','Onions',.7],['jalapenos','Jalapeños',.9],['pepperoni','Pepperoni',1.5],['basil','Fresh Basil',.5],['extrasauce','Extra Tomato Sauce',.5]].map(([id,name,price])=>({id,name,price}));
+const TAX=.08, SERVICE=.05; // demo rates — configurable server-side in production
+
+/* ============ state machine ============ */
+const STAGE={outside:'Outside',entering:'Entering…',welcome:'Welcome',table_selection:'Choosing a table',seating:'Seating you…',menu_browsing:'Browsing menu',dish_customization:'Customizing dish',cart_review:'Reviewing order',order_submitting:'Sending to kitchen…',order_confirmed:'Order confirmed',kitchen_preparing:'Kitchen preparing',ready_to_serve:'Ready to serve',serving:'Serving…',dining:'Enjoy your meal',bill_requested:'Requesting bill',bill_review:'Bill review',payment_processing:'Payment',payment_failed:'Payment failed',payment_success:'Paid',exiting:'Leaving…',visit_completed:'Grazie!'};
+const ALLOWED={outside:['entering','menu_browsing'],entering:['welcome'],welcome:['table_selection'],table_selection:['seating','welcome'],seating:['menu_browsing'],menu_browsing:['dish_customization','cart_review','seating'],dish_customization:['cart_review','menu_browsing'],cart_review:['order_submitting','menu_browsing','dining'],order_submitting:['order_confirmed'],order_confirmed:['kitchen_preparing','menu_browsing'],kitchen_preparing:['ready_to_serve'],ready_to_serve:['serving'],serving:['dining'],dining:['bill_requested','menu_browsing','dish_customization','cart_review'],bill_requested:['bill_review','dining'],bill_review:['payment_processing','dining'],payment_processing:['payment_success','payment_failed'],payment_failed:['payment_processing','bill_review'],payment_success:['exiting'],exiting:['visit_completed'],visit_completed:['outside']};
+const store={state:'boot',guests:2,tableId:null,sessionRef:null,cart:[],orders:[],bill:null,receipt:null};
+function setState(s){
+  if(!ALLOWED[store.state]?.includes(s))console.warn('[journey] lenient transition',store.state,'→',s);
+  store.state=s;renderStage();saveSession();announce(STAGE[s]||s);
+}
+
+/* ============ three.js scene ============ */
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({antialias:true});
+}catch(e){ $('webglError').style.display='block'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ $('c').appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xf5c489);
+scene.fog=new THREE.Fog(0xf0bd85,34,95);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,220);
+const camTarget=new THREE.Vector3(0,2.4,7);
+camera.position.set(0,2.4,24);
+scene.add(new THREE.AmbientLight(0xfff0e0,.32));
+scene.add(new THREE.HemisphereLight(0xffd9b0,0x40301f,.5));
+const sun=new THREE.DirectionalLight(0xffb070,2.4);
+sun.position.set(18,11,22);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);sun.shadow.bias=-.0005;
+Object.assign(sun.shadow.camera,{left:-26,right:26,top:26,bottom:-26,far:70});
+scene.add(sun);
+const kitchenLight=new THREE.PointLight(0xffb36b,26,13,2);kitchenLight.position.set(-4,3.1,-5);scene.add(kitchenLight);
+const entryLight=new THREE.PointLight(0xffc98a,18,10,2);entryLight.position.set(0,3.4,5.4);scene.add(entryLight);
+const ovenFlame=new THREE.PointLight(0xff7a30,9,5,2);ovenFlame.position.set(-6,1.1,-4);scene.add(ovenFlame);
+const tableLight=new THREE.PointLight(0xffd2a0,16,8,2);tableLight.position.set(0,2.3,1);scene.add(tableLight);
+
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+/* ---- procedural textures ---- */
+function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+function brickTex(){const t=canvasTex(512,256,(g,w,h)=>{g.fillStyle='#9b8578';g.fillRect(0,0,w,h);const bw=64,bh=26;for(let y=0;y<h/bh;y++){const off=(y%2)*bw/2;for(let x=-1;x<w/bw+1;x++){const s=.82+Math.random()*.34;g.fillStyle=`rgb(${142*s|0},${74*s|0},${56*s|0})`;g.fillRect(x*bw+off+2,y*bh+2,bw-4,bh-4);}}});t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
+function woodTex(){const t=canvasTex(512,512,(g,w,h)=>{g.fillStyle='#7a4a2c';g.fillRect(0,0,w,h);for(let i=0;i<8;i++){const s=.85+Math.random()*.3;g.fillStyle=`rgb(${110*s|0},${66*s|0},${38*s|0})`;g.fillRect(i*64,0,62,h);g.strokeStyle='rgba(40,20,8,.5)';g.strokeRect(i*64+.5,0,62,h);for(let k=0;k<5;k++){g.strokeStyle='rgba(60,32,14,.25)';g.beginPath();const y=Math.random()*h;g.moveTo(i*64,y);g.bezierCurveTo(i*64+20,y+8,i*64+40,y-8,i*64+62,y+4);g.stroke();}}});t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,4);return t;}
+function signTex(){return canvasTex(1024,256,(g,w,h)=>{g.fillStyle='#201B18';g.fillRect(0,0,w,h);g.strokeStyle='#F4C65B';g.lineWidth=8;g.strokeRect(12,12,w-24,h-24);g.fillStyle='#C92A22';g.font='800 108px Georgia';g.textAlign='center';g.textBaseline='middle';g.fillText('FORNO VIVO',w/2,h/2-14);g.fillStyle='#F4C65B';g.font='600 40px Georgia';g.fillText('· PIZZERIA NAPOLETANA ·',w/2,h/2+72);});}
+function boardTex(){return canvasTex(256,384,(g,w,h)=>{g.fillStyle='#3a2a1c';g.fillRect(0,0,w,h);g.fillStyle='#FFF4E4';g.font='700 34px Georgia';g.textAlign='center';g.fillText('MENU',w/2,52);g.font='22px Georgia';['Margherita 12.5','Pepperoni 13.9','Truffle 16.5','Pomodoro 11.9','Tiramisù 7.5'].forEach((s,i)=>g.fillText(s,w/2,110+i*44));});}
+function stripeTex(){const t=canvasTex(256,64,(g,w,h)=>{for(let i=0;i<8;i++){g.fillStyle=i%2?'#FFF4E4':'#C92A22';g.fillRect(i*32,0,32,h);}});t.wrapS=THREE.RepeatWrapping;t.repeat.set(3,1);return t;}
+function steamTex(){return canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(64,64,4,64,64,62);r.addColorStop(0,'rgba(255,255,255,.85)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,w,h);});}
+const brickT=brickTex(),woodT=woodTex(),steamT=steamTex();
+const matCache={};
+function mat(color,rough=.8,metal=0){const k=color+'_'+rough+'_'+metal;if(!matCache[k])matCache[k]=new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});return matCache[k];}
+function box(w,h,d,m,x=0,y=0,z=0,shadow=true){const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x,y,z);if(shadow){b.castShadow=true;b.receiveShadow=true;}return b;}
+function cyl(rt,rb,h,m,x=0,y=0,z=0,seg=24){const c=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),m);c.position.set(x,y,z);c.castShadow=true;c.receiveShadow=true;return c;}
+
+/* ---- exterior ---- */
+let doorPivot,extGroup;
+(function buildExterior(){
+  extGroup=new THREE.Group();scene.add(extGroup);
+  const street=new THREE.Mesh(new THREE.PlaneGeometry(70,26),mat(0x3c3a3c,.95));street.rotation.x=-Math.PI/2;street.position.set(0,0,23);street.receiveShadow=true;extGroup.add(street);
+  const walk=new THREE.Mesh(new THREE.PlaneGeometry(70,9),mat(0x9a9188,.95));walk.rotation.x=-Math.PI/2;walk.position.set(0,.01,9.5);walk.receiveShadow=true;extGroup.add(walk);
+  const brickM=new THREE.MeshStandardMaterial({map:brickT,roughness:.92});
+  // front wall with door opening
+  extGroup.add(box(8.8,6,.4,brickM,-5.6,3,7));
+  extGroup.add(box(8.8,6,.4,brickM,5.6,3,7));
+  extGroup.add(box(2.4,3,.4,brickM,0,4.5,7));
+  extGroup.add(box(.4,6,14.4,brickM,-10,3,0));
+  extGroup.add(box(.4,6,14.4,brickM,10,3,0));
+  extGroup.add(box(20.4,6,.4,brickM,0,3,-7));
+  extGroup.add(box(21.4,.4,15.4,mat(0x4a3324,.9),0,6.2,0));
+  // glowing windows
+  [-5.5,5.5].forEach(x=>{
+    extGroup.add(box(4.3,2.5,.1,new THREE.MeshStandardMaterial({color:0xffe6b0,emissive:0xffc873,emissiveIntensity:1.4}),x,2.3,7.05,false));
+    extGroup.add(box(4.7,.12,.2,mat(0x2b1d12,.7),x,3.62,7.08));
+    extGroup.add(box(4.7,.12,.2,mat(0x2b1d12,.7),x,1.02,7.08));
+    const aw=box(4.8,.1,1.3,new THREE.MeshStandardMaterial({map:stripeTex(),roughness:.85}),x,3.95,7.7);aw.rotation.x=.35;extGroup.add(aw);
+  });
+  // door
+  doorPivot=new THREE.Group();doorPivot.position.set(-1.2,0,7);extGroup.add(doorPivot);
+  const door=box(2.35,3.4,.14,mat(0x5b3a22,.7),1.18,1.7,0);
+  door.add(box(.5,1.1,.02,new THREE.MeshStandardMaterial({color:0xffe6b0,emissive:0xffc873,emissiveIntensity:.9}),0,.5,.09,false));
+  door.add(new THREE.Mesh(new THREE.SphereGeometry(.06),mat(0xd8b25a,.3,.9))).children;
+  const handle=new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),mat(0xd8b25a,.3,.9));handle.position.set(2,1.7,.12);door.add(handle);
+  doorPivot.add(door);
+  extGroup.add(box(2.7,.25,.5,mat(0x6b4a2e,.8),0,3.55,7.1));
+  // sign
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(7.4,1.85),new THREE.MeshBasicMaterial({map:signTex()}));sign.position.set(0,5.1,7.25);extGroup.add(sign);
+  const signGlow=new THREE.PointLight(0xffd9a0,10,8,2);signGlow.position.set(0,5,8.4);extGroup.add(signGlow);
+  // outdoor tables
+  [-6.5,6.5].forEach(x=>{
+    extGroup.add(cyl(.85,.85,.06,mat(0x8a5a34,.7),x,.78,11.5));
+    extGroup.add(cyl(.07,.07,.75,mat(0x4a3220,.8),x,.4,11.5));
+    extGroup.add(cyl(.3,.36,.05,mat(0x4a3220,.8),x,.03,11.5));
+    const pole=cyl(.035,.035,2.6,mat(0x8a8f96,.4,.8),x,2.1,11.5);extGroup.add(pole);
+    const um=new THREE.Mesh(new THREE.ConeGeometry(1.5,.55,8),new THREE.MeshStandardMaterial({map:stripeTex(),roughness:.85}));um.position.set(x,3.35,11.5);um.castShadow=true;extGroup.add(um);
+    [[1.1,0],[-1.1,0]].forEach(([dx])=>extGroup.add(box(.42,.06,.42,mat(0x6b4326,.8),x+dx,.46,11.5)));
+  });
+  // plants
+  [[-8.8,8.2],[-3.2,8.2],[3.2,8.2],[8.8,8.2]].forEach(([x,z])=>{
+    extGroup.add(cyl(.3,.24,.5,mat(0xa8593a,.85),x,.25,z));
+    const fol=new THREE.Mesh(new THREE.SphereGeometry(.42,12,10),mat(0x3f6f3f,.9));fol.position.set(x,.85,z);fol.castShadow=true;extGroup.add(fol);
+  });
+  // menu board
+  const bd=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.9),new THREE.MeshBasicMaterial({map:boardTex()}));bd.position.set(3.3,1.35,8.6);bd.rotation.y=-.4;extGroup.add(bd);
+  extGroup.add(box(.08,1,.08,mat(0x2b1d12,.8),3.05,.5,8.75));extGroup.add(box(.08,1,.08,mat(0x2b1d12,.8),3.55,.5,8.62));
+  // street lamps
+  [[-13,12],[13,12]].forEach(([x,z])=>{extGroup.add(cyl(.07,.09,4.4,mat(0x2b2b2e,.6,.6),x,2.2,z));const b=new THREE.Mesh(new THREE.SphereGeometry(.2),new THREE.MeshStandardMaterial({color:0xffe6b0,emissive:0xffc873,emissiveIntensity:2}));b.position.set(x,4.5,z);extGroup.add(b);});
+})();
+
+/* ---- interior ---- */
+const TABLES=[
+ {id:1,x:-6,z:3,cap:2,loc:'Window Seating',status:'available',note:'Quiet, warm and intimate.'},
+ {id:2,x:-6.5,z:-.5,cap:4,loc:'Window Seating',status:'available',note:'Street view with golden light.'},
+ {id:3,x:-7.5,z:-2.6,cap:2,loc:'Cozy Corner',status:'occupied',note:'A quiet nook by the brick wall.'},
+ {id:4,x:0,z:4.2,cap:2,loc:'Center Aisle',status:'available',note:'Right by the entrance, first to smell the oven.'},
+ {id:5,x:0,z:.8,cap:4,loc:'Center Aisle',status:'available',note:'The heart of the room.'},
+ {id:6,x:-.9,z:-2.6,cap:6,loc:"Chef's Table",status:'available',note:'Front-row view of the wood-fired oven.'},
+ {id:7,x:6.5,z:3,cap:4,loc:'Window Seating',status:'occupied',note:'Great for small groups.'},
+ {id:8,x:6.5,z:-.5,cap:2,loc:'Window Seating',status:'available',note:'Watch the street while you dine.'},
+ {id:9,x:7.5,z:-2.6,cap:2,loc:'Quiet Corner',status:'unavailable',note:'Reserved for private events today.'},
+];
+const tables3D={},servedMeshes=[];
+function addChair(g,x,z,ry){const c=new THREE.Group();c.position.set(x,0,z);c.rotation.y=ry;c.add(box(.44,.06,.44,mat(0x6b4326,.8),0,.46,0));c.add(box(.44,.5,.06,mat(0x6b4326,.8),0,.74,-.2));c.add(box(.05,.46,.4,mat(0x4a3220,.8),-.19,.23,0));c.add(box(.05,.46,.4,mat(0x4a3220,.8),.19,.23,0));g.add(c);}
+let chef,waiterNPC,tray;
+function makePerson({shirt=0xf5f5f0,pants=0x23262b,skin=0xe0b08c,apron=0,hat=0}={}){
+  const g=new THREE.Group();
+  g.add(box(.16,.8,.18,mat(pants),-.11,.4,0));g.add(box(.16,.8,.18,mat(pants),.11,.4,0));
+  g.add(box(.46,.62,.26,mat(shirt,.75),0,1.11,0));
+  if(apron)g.add(box(.4,.56,.03,mat(apron,.85),0,1.0,.15));
+  const armG=new THREE.BoxGeometry(.11,.55,.13);armG.translate(0,-.24,0);
+  const aL=new THREE.Mesh(armG,mat(shirt,.75));aL.position.set(-.3,1.36,0);g.add(aL);
+  const aR=new THREE.Mesh(armG.clone(),mat(shirt,.75));aR.position.set(.3,1.36,0);g.add(aR);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.17,18,14),mat(skin,.65));head.position.y=1.62;head.castShadow=true;g.add(head);
+  const eg=new THREE.SphereGeometry(.02,8,8),em=mat(0x201b18);
+  const e1=new THREE.Mesh(eg,em);e1.position.set(-.055,1.66,.15);g.add(e1);
+  const e2=new THREE.Mesh(eg.clone(),em);e2.position.set(.055,1.66,.15);g.add(e2);
+  if(hat){g.add(cyl(.14,.14,.17,mat(hat,.7),0,1.86,0));g.add(cyl(.2,.2,.02,mat(hat,.7),0,1.78,0));}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  g.userData={aL,aR};return g;
+}
+(function buildInterior(){
+  const g=new THREE.Group();scene.add(g);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(19.6,13.6),new THREE.MeshStandardMaterial({map:woodT,roughness:.6}));floor.rotation.x=-Math.PI/2;floor.position.y=.02;floor.receiveShadow=true;g.add(floor);
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(19.6,13.6),mat(0x3a2c20,.95));ceil.rotation.x=Math.PI/2;ceil.position.y=4.25;g.add(ceil);
+  // host counter
+  g.add(box(2.2,1.05,.8,mat(0x5b3a22,.7),4.6,.55,4.9));
+  g.add(box(2.4,.06,1,mat(0x2b1d12,.5),4.6,1.1,4.9));
+  g.add(cyl(.03,.03,.6,mat(0xb87333,.35,.85),5.3,1.4,4.9));
+  const hl=new THREE.Mesh(new THREE.SphereGeometry(.07),new THREE.MeshStandardMaterial({color:0xffe0a8,emissive:0xffc060,emissiveIntensity:1.6}));hl.position.set(5.3,1.74,4.9);g.add(hl);
+  // kitchen
+  g.add(box(4,1,1.3,mat(0x5b3a22,.7),-3.6,.5,-6.3));g.add(box(4.1,.05,1.4,mat(0xc0c6cc,.35,.85),-3.6,1.03,-6.3));
+  g.add(box(2.4,1,1.3,mat(0x5b3a22,.7),1.4,.5,-6.3));g.add(box(2.5,.05,1.4,mat(0xc0c6cc,.35,.85),1.4,1.03,-6.3));
+  const brickM=new THREE.MeshStandardMaterial({map:brickT,roughness:.92});
+  g.add(box(2.7,1.1,1.9,brickM,-6,.55,-4.6));
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(1.25,22,14,0,Math.PI*2,0,Math.PI/2),brickM);dome.position.set(-6,1.1,-4.6);dome.castShadow=true;g.add(dome);
+  g.add(box(.9,.65,.1,new THREE.MeshStandardMaterial({color:0xff8a30,emissive:0xff6a10,emissiveIntensity:1.8}),-6,.5,-3.62,false));
+  const dough=cyl(.3,.3,.05,mat(0xf0e2c8,.8),-2.2,1.08,-6.1);g.add(dough);
+  chef=makePerson({shirt:0xf2f2f2,apron:0xd8d2c6,hat:0xffffff});chef.position.set(-3.4,0,-5.2);chef.rotation.y=.5;g.add(chef);
+  // tables
+  const IND={available:0x4cc366,selected:0xf4c65b,occupied:0x8a8a8a,unavailable:0xc92a22,yours:0xf4c65b};
+  for(const t of TABLES){
+    const tg=new THREE.Group();tg.position.set(t.x,0,t.z);tg.userData.tableId=t.id;
+    const r=t.cap<=2?.7:t.cap<=4?.85:1;
+    t.topR=r;
+    tg.add(cyl(r,r,.06,mat(0x8a5a34,.65),0,.92,0,28));
+    tg.add(box(.12,.88,.12,mat(0x4a3220,.8),0,.46,0));
+    tg.add(cyl(.3,.36,.05,mat(0x4a3220,.8),0,.03,0));
+    const nCh=t.cap<=2?2:4;
+    if(nCh===2){addChair(tg,0,r+.55,Math.PI);addChair(tg,0,-(r+.55),0);}
+    else{addChair(tg,-r*.55,r+.55,Math.PI);addChair(tg,r*.55,r+.55,Math.PI);addChair(tg,-r*.55,-(r+.55),0);addChair(tg,r*.55,-(r+.55),0);}
+    if(t.candle){const fl=new THREE.Mesh(new THREE.SphereGeometry(.035),new THREE.MeshStandardMaterial({color:0xffd070,emissive:0xffa030,emissiveIntensity:2.5}));fl.position.set(.25,1.13,0);tg.add(fl);tg.add(cyl(.05,.05,.14,mat(0xf0e8d8,.6),.25,1.02,0));}
+    if(t.flower){tg.add(cyl(.06,.05,.16,mat(0xb0b8c0,.4,.7),-.28,1.03,0));const bl=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),mat(0xc94a5a,.8));bl.position.set(-.28,1.16,0);tg.add(bl);}
+    const ind=new THREE.Mesh(new THREE.OctahedronGeometry(.1),new THREE.MeshStandardMaterial({color:IND[t.status],emissive:IND[t.status],emissiveIntensity:.9}));
+    ind.position.y=1.85;tg.add(ind);t._ind=ind;t._indBase=1.85;
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(r+.1,.035,8,40),new THREE.MeshStandardMaterial({color:0xf4c65b,emissive:0xf4c65b,emissiveIntensity:1.2}));
+    ring.rotation.x=Math.PI/2;ring.position.y=.98;ring.visible=false;tg.add(ring);t._ring=ring;
+    g.add(tg);tables3D[t.id]=tg;
+    // pendant
+    const cord=cyl(.012,.012,4.25-2.62,mat(0x2b1d12,.8),0,3.43,0);cord.castShadow=false;tg.add(cord);
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.11,12,10),new THREE.MeshStandardMaterial({color:0xffe2a8,emissive:0xffc060,emissiveIntensity:1.8}));bulb.position.y=2.56;tg.add(bulb);
+    const shade=cyl(.3,.14,.16,mat(0x75452d,.8),0,2.72,0);shade.castShadow=false;tg.add(shade);
+    // plates & glasses for ambiance
+    tg.add(cyl(.14,.14,.015,mat(0xf5f0e6,.5),.22,.96,.18));tg.add(cyl(.14,.14,.015,mat(0xf5f0e6,.5),-.22,.96,-.18));
+    const gl=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.16,10),new THREE.MeshStandardMaterial({color:0xcfe8ef,transparent:true,opacity:.5,roughness:.1}));gl.position.set(.34,1.03,-.1);tg.add(gl);
+    if(t.status==='occupied'){const p1=makePerson({shirt:0x4a6b8a,pants:0x333});p1.position.set(.15,0,r+.85);p1.rotation.y=Math.PI;tg.add(p1);const p2=makePerson({shirt:0x8a4a4a});p2.position.set(-.15,0,-(r+.85));tg.add(p2);t._guests=[p1,p2];}
+  }
+  // waiter + tray
+  waiterNPC=makePerson({shirt:0xf5f5f0,apron:0xC92A22});waiterNPC.position.set(3.3,0,3.7);waiterNPC.rotation.y=2.6;g.add(waiterNPC);
+  tray=new THREE.Group();tray.add(cyl(.22,.22,.025,mat(0x9a6a3a,.6),0,0,0));tray.add(cyl(.14,.14,.03,mat(0xd9a05b,.7),0,.028,0));tray.position.set(0,1.06,.34);tray.visible=false;waiterNPC.add(tray);
+  // steam group
+})();
+function steamAt(x,y,z){const grp=new THREE.Group();grp.position.set(x,y,z);for(let i=0;i<3;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:steamT,transparent:true,opacity:0,depthWrite:false}));s.scale.setScalar(.3);s.userData.off=i/3;grp.add(s);}scene.add(grp);return grp;}
+function faceCam(p){p.rotation.y=Math.atan2(camera.position.x-p.position.x,camera.position.z-p.position.z);}
+
+/* ---- camera & movement ---- */
+function cameraTo(px,py,pz,tx,ty,tz,dur=1600){return new Promise(res=>{const p0=camera.position.clone(),t0=camTarget.clone(),p1=new THREE.Vector3(px,py,pz),t1=new THREE.Vector3(tx,ty,tz);animate(reduced?dur*.35:dur,k=>{camera.position.lerpVectors(p0,p1,k);camTarget.lerpVectors(t0,t1,k);},res);});}
+function doorTo(target){const from=doorPivot.rotation.y;return new Promise(res=>animate(850,k=>doorPivot.rotation.y=from+(target-from)*k,res));}
+const SEAT={pos:new THREE.Vector3(),tgt:new THREE.Vector3()};
+function seatCam(t){const off=t.topR+1.15;SEAT.pos.set(t.x,1.22,t.z+off);SEAT.tgt.set(t.x,.85,t.z);}
+let following=false;
+function walkWaiter(points,speed=1.75){
+  const run=async()=>{
+    for(const [x,z] of points){
+      const from=waiterNPC.position.clone(),to=new THREE.Vector3(x,0,z);
+      const dist=Math.max(.05,from.distanceTo(to));
+      waiterNPC.rotation.y=Math.atan2(to.x-from.x,to.z-from.z);
+      await animate(dist/speed*1000,k=>{
+        waiterNPC.position.lerpVectors(from,to,k);
+        waiterNPC.position.y=Math.abs(Math.sin(k*dist*4.2))*.04;
+        const s=Math.sin(k*dist*4.2)*.55;
+        waiterNPC.userData.aL.rotation.x=s;waiterNPC.userData.aR.rotation.x=-s;
+      },null,linear);
+    }
+    waiterNPC.position.y=0;waiterNPC.userData.aL.rotation.x=0;waiterNPC.userData.aR.rotation.x=0;
+  };return run();
+}
+function waiterToTable(t,thenReturn=false){
+  const laneX=t.x<-1.5?-3.2:t.x>1.5?3.2:(t.x<0?-3.2:3.2);
+  const laneZ=Math.min(t.z+2.3,6.2),front=t.z+t.topR+1.15;
+  const pts=[[-3.4,-4.2],[laneX,-1],[laneX,laneZ],[t.x,front]];
+  const seq=async()=>{await walkWaiter(pts);faceCam(waiterNPC);if(thenReturn)setTimeout(()=>walkWaiter([...pts].reverse().map(p=>[p[0],p[1]])),2500);};
+  return seq();
+}
+
+/* ---- pizza builder ---- */
+function buildPizza(opt,r){
+  const g=new THREE.Group(),tops=opt.toppings||[];
+  const ch=opt.crust==='thick'?.14:opt.crust==='thin'?.05:.09;
+  const crust=cyl(r,r*.93,ch,mat(0xd9a05b,.7),0,ch/2,0,32);g.add(crust);
+  if(opt.crust==='stuffed'){const ring=new THREE.Mesh(new THREE.TorusGeometry(r*.85,.055,10,36),mat(0xe2b06b,.7));ring.rotation.x=Math.PI/2;ring.position.y=ch+.02;g.add(ring);}
+  const sauce=cyl(r*.9,r*.9,.02,mat(tops.includes('extrasauce')?0x8f2a1e:0xb3372a,.6),0,ch+.01,0,32);g.add(sauce);
+  const cheese=cyl(r*.85,r*.85,.025,mat(0xf4c65b,.55),0,ch+.03,0,32);g.add(cheese);
+  const scatter=(n,fn)=>{for(let i=0;i<n;i++){const a=i*2.3998,rr=r*.7*Math.sqrt((i+.5)/n);fn(Math.cos(a)*rr,Math.sin(a)*rr,i);}};
+  const at=(m,x,z,y)=>{m.position.set(x,y,z);m.rotation.y=Math.random()*6.28;m.castShadow=true;g.add(m);return m;};
+  if(tops.includes('pepperoni'))scatter(9,(x,z)=>at(cyl(.085,.085,.018,mat(0xb03a2e,.6),0,0,0,14),x,z,ch+.062));
+  if(tops.includes('mushrooms'))scatter(7,(x,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.062,10,8),mat(0xe9dcc4,.8));m.scale.y=.55;at(m,x,z,ch+.07);});
+  if(tops.includes('olives'))scatter(8,(x,z)=>at(new THREE.Mesh(new THREE.SphereGeometry(.035,8,8),mat(0x2c2c2c,.6)),x,z,ch+.07));
+  if(tops.includes('peppers'))scatter(7,(x,z)=>at(box(.11,.02,.032,mat(0x5a9e4f,.7)),x,z,ch+.06));
+  if(tops.includes('onions'))scatter(6,(x,z)=>{const m=new THREE.Mesh(new THREE.TorusGeometry(.045,.013,6,14),mat(0xead9c4,.7));m.rotation.x=Math.PI/2;at(m,x,z,ch+.065);});
+  if(tops.includes('jalapenos'))scatter(6,(x,z)=>at(cyl(.032,.032,.026,mat(0x4c8f36,.6),0,0,0,10),x,z,ch+.075));
+  if(tops.includes('basil'))scatter(6,(x,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),mat(0x3f6f3f,.8));m.scale.set(1,.35,1.4);at(m,x,z,ch+.06);});
+  if(tops.includes('mozzarella'))scatter(7,(x,z)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),mat(0xfff0c8,.5));m.scale.y=.5;at(m,x,z,ch+.068);});
+  return g;
+}
+function foodMesh(item){ // non-pizza dish visuals
+  const g=new THREE.Group();g.add(cyl(.18,.18,.02,mat(0xf5f0e6,.5),0,.01,0,20));
+  const y=.06;
+  if(item.cat==='pasta')g.add(new THREE.Mesh(new THREE.TorusKnotGeometry(.08,.032,48,8),mat(0xe8c25a,.7)));
+  else if(item.cat==='dessert')g.add(new THREE.Mesh(new THREE.SphereGeometry(.085,12,10),mat(0x8a5a34,.7)));
+  else if(item.cat==='drinks'){const c=new THREE.Mesh(new THREE.CylinderGeometry(.05,.045,.17,10),new THREE.MeshStandardMaterial({color:0xcfe8ef,transparent:true,opacity:.45,roughness:.1}));c.position.y=.1;g.add(c);}
+  else if(item.cat==='salad'){for(let i=0;i<4;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),mat(i%2?0x5a9e4f:0xc94a5a,.8));b.position.set(rand(-.07,.07),y,rand(-.07,.07));g.add(b);}}
+  else{for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),mat(0xd9a05b,.75));b.position.set(rand(-.07,.07),y,rand(-.07,.07));g.add(b);}}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;
+}
+const SLOTS=[[0,.05],[.5,.28],[-.5,.3],[.45,-.35],[-.45,-.3],[0,-.5]];
+function placeDish(item,slot){
+  const t=TABLES.find(t=>t.id===store.tableId);if(!t)return null;
+  const s=SLOTS[slot%SLOTS.length],sc=t.topR/.85;
+  const m=item.pizza?buildPizza({crust:item.options?.crust||'classic',toppings:item.options?.toppings||[]},.55*(SIZES[item.options?.size||'medium']?.factor||1)):foodMesh(item);
+  m.position.set(t.x+s[0]*sc,.955,t.z+s[1]*sc);scene.add(m);servedMeshes.push(m);
+  if(item.pizza){const st=steamAt(m.position.x,1.25,m.position.z);servedMeshes.push(st);}
+  return m;
+}
+function clearServed(){for(const m of servedMeshes){scene.remove(m);m.traverse?.(o=>{o.geometry?.dispose?.();});}servedMeshes.length=0;}
+
+/* ---- picking / drag ---- */
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+let pDown=null,dragging=false,previewPizza=null;
+const dom=renderer.domElement;
+dom.addEventListener('pointerdown',e=>{pDown={x0:e.clientX,y0:e.clientY,lx:e.clientX};dragging=false;});
+dom.addEventListener('pointermove',e=>{if(!pDown)return;const dx=e.clientX-pDown.lx;pDown.lx=e.clientX;if(Math.abs(e.clientX-pDown.x0)>7||Math.abs(e.clientY-pDown.y0)>7)dragging=true;if(dragging&&store.state==='dish_customization'&&previewPizza)previewPizza.rotation.y+=dx*.012;});
+addEventListener('pointerup',e=>{if(pDown&&!dragging)handleClick(e);pDown=null;dragging=false;});
+function handleClick(e){
+  if(store.state!=='table_selection')return;
+  ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const hits=ray.intersectObjects(Object.values(tables3D),true);
+  for(const h of hits){let o=h.object;while(o&&!o.userData.tableId)o=o.parent;if(o){onTablePicked(o.userData.tableId);return;}}
+}
+
+/* ---- render loop ---- */
+let kitchenActive=false,skipWaitFlag=false,skipServeFlag=false;
+renderer.setAnimationLoop(now=>{
+  stepAnims(now);const t=now;
+  if(waiterNPC&&waiterNPC.parent){/* idle handled by walk */}
+  chef.userData.aL.rotation.x=kitchenActive?Math.sin(t*.008)*.7:Math.sin(t*.002)*.05;
+  chef.userData.aR.rotation.x=kitchenActive?Math.sin(t*.008+1.5)*.7:-Math.sin(t*.002)*.05;
+  chef.position.y=kitchenActive?Math.abs(Math.sin(t*.006))*.03:0;
+  ovenFlame.intensity=8+Math.sin(t*.013)*2+Math.sin(t*.031)*1.5;
+  for(const tb of TABLES){if(tb._ind){tb._ind.position.y=tb._indBase+Math.sin(t*.002+tb.id)*.06;tb._ind.rotation.y+=.01;}if(tb._guests)tb._guests.forEach((p,i)=>p.position.y=Math.sin(t*.0018+i)*.01);}
+  if(following&&waiterNPC){camTarget.lerp(new THREE.Vector3(waiterNPC.position.x,1.1,waiterNPC.position.z),.09);}
+  if(store.state==='dish_customization'&&previewPizza&&!dragging)previewPizza.rotation.y+=.0035;
+  for(const m of servedMeshes){if(m.isGroup&&m.children[0]?.isSprite){for(const s of m.children){const ph=(t*.00045+s.userData.off)%1;s.position.y=ph*.5;s.position.x=Math.sin(ph*7)*.05;s.material.opacity=Math.sin(ph*Math.PI)*.4;s.scale.setScalar(.2+ph*.35);}}}
+  camera.lookAt(camTarget);
+  renderer.render(scene,camera);
+});
+
+/* ============ simulated API layer (swap with real fetch() in production) ============ */
+const api={
+  async createSession(tableId,guests){
+    await delay(600);
+    if(Math.random()<.12){const err=new Error('TABLE_TAKEN');err.code='TABLE_TAKEN';throw err;} // Scenario B demo
+    return {sessionRef:'SES-'+Math.random().toString(36).slice(2,8).toUpperCase()};
+  },
+  unitPrice(item,o={}){
+    let u=item.price;
+    if(item.pizza)u=item.price*(SIZES[o.size||'medium']?.factor||1)+(CRUSTS[o.crust||'classic']?.add||0)+(o.toppings||[]).reduce((s,t)=>s+(TOPPINGS.find(x=>x.id===t)?.price||0),0);
+    return Math.round(u*100)/100;
+  },
+  async submitOrder(cart){
+    await delay(1100);
+    const unavailable=cart.filter(c=>c.itemId==='burrata'&&Math.random()<.25).map(c=>c.name); // Scenario C demo
+    if(unavailable.length){const e=new Error('UNAVAILABLE');e.items=unavailable;throw e;}
+    const items=cart.map(c=>({itemId:c.itemId,name:c.name,qty:c.qty,unit:this.unitPrice(MENU.find(m=>m.id===c.itemId),c.options),options:c.options,instructions:c.instructions||'',cat:c.cat,pizza:c.pizza,total:0}));
+    items.forEach(i=>i.total=Math.round(i.unit*i.qty*100)/100);
+    const subtotal=Math.round(items.reduce((s,i)=>s+i.total,0)*100)/100;
+    const tax=Math.round(subtotal*TAX*100)/100;
+    const order={ref:'FV-'+Date.now().toString().slice(-6),items,subtotal,tax,total:Math.round((subtotal+tax)*100)/100,status:'kitchen',etaMin:Math.max(...items.map(i=>MENU.find(m=>m.id===i.itemId).prep))+2};
+    return order;
+  },
+  async createBill(orders,tipPct){
+    await delay(800);
+    const sub=Math.round(orders.reduce((s,o)=>s+o.total,0)*100)/100;
+    const tax=Math.round(sub*TAX*100)/100,svc=Math.round(sub*SERVICE*100)/100,tip=Math.round(sub*tipPct*100)/100;
+    return {ref:'BILL-'+Math.random().toString(36).slice(2,8).toUpperCase(),subtotal:sub,tax,service:svc,tip,tipPct,total:Math.round((sub+tax+svc+tip)*100)/100,status:'unpaid'};
+  },
+  async processPayment(bill,method,details){
+    await delay(1900);
+    if(method==='card'&&details.cvc==='000'){const e=new Error('DECLINED');e.code='DECLINED';throw e;} // Scenario D demo
+    return {payRef:'PAY-'+Math.random().toString(36).slice(2,10).toUpperCase(),method};
+  }
+};
+
+/* ============ UI plumbing ============ */
+const PANELS=['introPanel','resumeBanner','dialoguePanel','specialsPanel','tablePanel','menuPanel','cartPanel','orderDonePanel','kitchenPanel','diningBar','billPanel','payPanel','receiptPanel','farewellPanel'];
+function hidePanels(){PANELS.forEach(p=>$(p).classList.remove('show'));}
+function showPanel(id){hidePanels();$(id).classList.add('show');}
+const PANEL_FOR={outside:'introPanel',welcome:'dialoguePanel',table_selection:'tablePanel',menu_browsing:'menuPanel',dish_customization:'menuPanel',cart_review:'cartPanel',order_confirmed:'orderDonePanel',kitchen_preparing:'kitchenPanel',dining:'diningBar',bill_requested:'dialoguePanel',bill_review:'billPanel',payment_processing:'payPanel',payment_failed:'payPanel',payment_success:'receiptPanel',visit_completed:'farewellPanel'};
+function renderStage(){
+  const id=PANEL_FOR[store.state];
+  if(id)showPanel(id);else hidePanels();
+  $('stageLabel').textContent=STAGE[store.state]||'';
+  $('tableChip').style.display=store.tableId?'':'none';
+  if(store.tableId)$('tableChip').textContent='Table '+String(store.tableId).padStart(2,'0');
+  $('btnBillTop').style.display=store.orders.length&&(!store.bill||store.bill.status!=='paid')?'':'none';
+  $('btnExitTop').style.display=['outside','visit_completed'].includes(store.state)?'none':'';
+  updateCartBadge();
+}
+function updateCartBadge(){$('cartCount').textContent=store.cart.reduce((s,c)=>s+c.qty,0);}
+function showDialogue(text,choices){$('dialogueText').textContent=text;const c=$('dialogueChoices');c.innerHTML='';choices.forEach(ch=>{const b=document.createElement('button');b.className='btn primary';b.textContent=ch.label;b.onclick=ch.fn;c.appendChild(b);});showPanel('dialoguePanel');}
+function setIndicator(t){const col={available:0x4cc366,selected:0xf4c65b,occupied:0x8a8a8a,unavailable:0xc92a22,yours:0xf4c65b}[t.status];t._ind.material.color.setHex(col);t._ind.material.emissive.setHex(col);t._ring.visible=t.status==='selected';}
+function resetIndicators(except){for(const t of TABLES){if(t.status==='yours')t.status='available';setIndicator(t);}if(except){except.status='selected';setIndicator(except);}}
+
+/* ============ persistence (Scenario E) ============ */
+function coarse(){const s=store.state;if(['menu_browsing','dish_customization','cart_review'].includes(s))return 'menu';if(['order_submitting','order_confirmed','kitchen_preparing','ready_to_serve','serving','dining'].includes(s))return 'dining';if(['bill_requested','bill_review','payment_processing','payment_failed','payment_success'].includes(s))return 'bill';return null;}
+function saveSession(){try{if(!store.tableId&&!store.orders.length){localStorage.removeItem('fv_session');return;}localStorage.setItem('fv_session',JSON.stringify({tableId:store.tableId,guests:store.guests,sessionRef:store.sessionRef,cart:store.cart,orders:store.orders,bill:store.bill,coarse:coarse()}));}catch(e){}}
+function clearSession(){try{localStorage.removeItem('fv_session');}catch(e){}}
+function offerResume(){
+  let s=null;try{s=JSON.parse(localStorage.getItem('fv_session'));}catch(e){}
+  if(!s||!s.tableId)return false;
+  $('resumeText').innerHTML=`We kept your table open — <b>Table ${String(s.tableId).padStart(2,'0')}</b>${s.orders.length?` · ${s.orders.length} order${s.orders.length>1?'s':''} in our books`:''}. Pick up right where you left off.`;
+  showPanel('resumeBanner');
+  $('btnResume').onclick=()=>{restore(s);};
+  $('btnFresh').onclick=()=>{clearSession();hidePanels();showPanel('introPanel');};
+  return true;
+}
+function restore(s){
+  store.tableId=s.tableId;store.guests=s.guests;store.sessionRef=s.sessionRef;store.cart=s.cart||[];store.orders=s.orders||[];store.bill=s.bill||null;
+  for(const t of TABLES)if(t.status==='available')t.status='occupied'; // demo room "fills" around you
+  const t=TABLES.find(t=>t.id===s.tableId);t.status='yours';resetIndicators(t);seatCam(t);tableLight.position.set(t.x,2.3,t.z);
+  camera.position.copy(SEAT.pos);camTarget.copy(SEAT.tgt);
+  store.orders.forEach((o,i)=>o.items.forEach((it,j)=>placeDish({pizza:it.pizza,cat:it.cat,options:it.options},i*3+j)));
+  showToast('Visit restored — welcome back!');
+  if(s.coarse==='bill'&&store.bill){store.bill.status==='paid'?(buildReceipt(),setState('payment_success')):setState('bill_review');}
+  else if(s.coarse==='dining'&&store.orders.length){setState('dining');}
+  else{setState('menu_browsing');renderMenu();}
+}
+
+/* ============ JOURNEY ============ */
+// SCENE 1 → 2
+async function enterRestaurant(){
+  if(store.state!=='outside')return;setState('entering');hidePanels();chime(520,.3,'triangle');
+  await cameraTo(0,1.9,12.5,0,2.3,7,1500);
+  await doorTo(-1.9);chime(300,.25,'sine',.05);
+  await cameraTo(0,1.7,8.6,0,1.6,2,1500);
+  await doorTo(0);
+  await cameraTo(.6,1.6,6,3.3,1.4,3.7,1700);
+  setState('welcome');waiterGreet();
+}
+function waiterGreet(){faceCam(waiterNPC);showDialogue("Buongiorno! Welcome to Forno Vivo. We're delighted to have you here. Would you like to choose a table?",[
+  {label:'Find Me a Table',fn:()=>{const g=store.guests;const cands=TABLES.filter(t=>t.status==='available'&&t.cap>=g).sort((a,b)=>(b.loc.includes('Window')?1:0)-(a.loc.includes('Window')?1:0));if(!cands.length){showToast('No free table for '+g+' right now — try a smaller group.');return;}onTablePicked(cands[0].id,true);}},
+  {label:'Choose My Own Table',fn:()=>{setState('table_selection');cameraTo(0,3.5,6.4,0,.7,-.8,1500);showToast('Tap a table with a green marker');}},
+  {label:"View Today's Specials",fn:showSpecials},
+]);}
+function showSpecials(){
+  const l=$('specialsList');l.innerHTML='';
+  SPECIALS.forEach(s=>{const m=MENU.find(m=>m.id===s.id);const d=document.createElement('div');d.className='mi';d.innerHTML=`<div><span class="n">${m.veg?'<span class="vdot"></span>':''}${m.name}</span><div class="d">${s.blurb}</div></div><div class="p">${fmt(m.price)}</div>`;l.appendChild(d);});
+  showPanel('specialsPanel');
+}
+// SCENE 3
+let pickedTable=null;
+function onTablePicked(id,auto=false){
+  const t=TABLES.find(t=>t.id===id);
+  if(t.status!=='available'){showToast(t.status==='occupied'?'Table '+id+' is currently occupied — try another.':'Table '+id+' is unavailable today.');return;}
+  pickedTable=id;resetIndicators(t);
+  cameraTo(t.x,1.65,t.z+t.topR+2.4,t.x,.85,t.z,1200);
+  $('tableInfo').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><span class="tn">Table ${String(id).padStart(2,'0')} — ${t.loc}</span><span class="stat available">AVAILABLE</span></div>
+  <div class="d" style="font-size:13px;color:#8a7460;margin-top:5px">Capacity: <b>${t.cap} guests</b> · ${t.note}</div>`;
+  $('btnConfirmTable').disabled=t.cap<store.guests;
+  if(t.cap<store.guests)$('tableInfo').innerHTML+=`<div class="note">⚠ This table seats ${t.cap} — your party of ${store.guests} needs a bigger table.</div>`;
+  if(auto)setState('table_selection');
+}
+async function confirmTable(){
+  if(!pickedTable)return;busy(true,'Reserving your table…');
+  try{
+    const s=await api.createSession(pickedTable,store.guests);
+    store.sessionRef=s.sessionRef;
+    const t=TABLES.find(t=>t.id===pickedTable);
+    t.status='yours';resetIndicators(null);t.status='yours';setIndicator(t);
+    store.tableId=pickedTable;busy(false);
+    await seat();
+  }catch(e){busy(false);
+    if(e.code==='TABLE_TAKEN'){showToast('Oh no — another guest just took that table! Here are free alternatives.');const alt=TABLES.filter(t=>t.status==='available'&&t.cap>=store.guests);if(alt.length)onTablePicked(alt[0].id);pickedTable=null;}
+  }
+}
+// SCENE 4
+async function seat(){
+  const t=TABLES.find(t=>t.id===store.tableId);
+  setState('seating');seatCam(t);tableLight.position.set(t.x,2.3,t.z);
+  await cameraTo(SEAT.pos.x,SEAT.pos.y,SEAT.pos.z,SEAT.tgt.x,SEAT.tgt.y,SEAT.tgt.z,1800);
+  following=true;
+  await waiterToTable(t);faceCam(waiterNPC);
+  showDialogue("Please make yourself comfortable. May I bring you something to drink, or would you like to explore our menu first?",[
+    {label:'Explore the Menu',fn:()=>{following=false;walkWaiter([[3.3,3.7]]);openMenu();}},
+    {label:'Order Drinks',fn:()=>{following=false;walkWaiter([[3.3,3.7]]);openMenu('drinks');}},
+    {label:'Ask for Recommendations',fn:recommendations},
+  ]);
+}
+function recommendations(){
+  showDialogue('Our chef suggests the Truffle Mushroom — today\'s black truffle is extraordinary. And you can\'t skip the Garlic Bread!',[
+    {label:'Add Truffle Mushroom ('+fmt(16.5)+')',fn:()=>{addToCartRaw({itemId:'truffle',name:'Truffle Mushroom',qty:1,unit:16.5,options:{},cat:'signature',pizza:true});recommendations();}},
+    {label:'Add Garlic Bread ('+fmt(5.5)+')',fn:()=>{addToCartRaw({itemId:'garlicbread',name:'Garlic Bread',qty:1,unit:5.5,options:{},cat:'starter',pizza:false});recommendations();}},
+    {label:'Explore the Menu',fn:()=>{following=false;openMenu();}},
+  ]);
+}
+// SCENES 5 & 6
+let curCat='signature',readOnlyMenu=false,cust=null;
+function openMenu(cat){
+  if(store.state==='dining'||store.state==='seating')setState('menu_browsing');
+  readOnlyMenu=!store.tableId;
+  $('menuNote').style.display=readOnlyMenu?'':'none';
+  $('menuClose').style.display=readOnlyMenu?'':'none';
+  $('itemDetail').style.display='none';$('menuItems').style.display='';
+  renderTabs();renderItems(cat||curCat);
+}
+function renderTabs(){
+  const w=$('menuTabs');w.innerHTML='';
+  CATS.forEach(([id,name])=>{const b=document.createElement('button');b.className='tab'+(id===curCat?' sel':'');b.textContent=name;b.onclick=()=>{curCat=id;renderTabs();renderItems(id);};w.appendChild(b);});
+}
+function renderItems(cat){
+  curCat=cat;$('itemDetail').style.display='none';$('menuItems').style.display='';
+  const w=$('menuItems');w.innerHTML='';
+  MENU.filter(m=>m.cat===cat).forEach(m=>{
+    const d=document.createElement('div');d.className='mi';
+    d.innerHTML=`<div><span class="n">${m.veg?'<span class="vdot" title="Vegetarian"></span>':''}${m.name}</span><div class="d">${m.desc}</div></div><div class="p">${fmt(m.price)}</div>`;
+    d.onclick=()=>openItem(m.id);w.appendChild(d);
+  });
+}
+function openItem(id){
+  const m=MENU.find(m=>m.id===id);
+  cust={itemId:id,size:'medium',crust:'classic',toppings:[],qty:1,instructions:''};
+  $('menuItems').style.display='none';
+  const d=$('itemDetail');d.style.display='';
+  d.innerHTML=`
+   <button class="btn ghost small" id="btnBackToMenu">← Back to menu</button>
+   <h2 style="margin:12px 0 2px">${m.name}</h2>
+   <div style="font-size:12.5px;color:#8a7460">⏱ ~${m.prep} min · Allergens: ${m.allerg}${m.veg?' · <b style="color:var(--green)">Vegetarian</b>':''}</div>
+   <p style="font-size:14px;margin:8px 0">${m.desc}</p>
+   ${m.pizza?`<div class="optrow"><span class="lbl">Size</span><div class="row" id="sizeRow" style="margin-top:2px"></div></div>
+   <div class="optrow"><span class="lbl">Crust</span><div class="row" id="crustRow" style="margin-top:2px"></div></div>
+   <div class="optrow"><span class="lbl">Toppings</span><div id="toppingsRow"></div></div>`:''}
+   <div class="optrow"><span class="lbl">Quantity</span><span class="qty"><button id="qtyMinus">−</button><span id="qtyVal">1</span><button id="qtyPlus">+</button></span></div>
+   <input type="text" id="itemInstr" placeholder="Special instructions for the kitchen (optional)" maxlength="140">
+   <div class="row" style="justify-content:space-between;align-items:center;margin-top:14px">
+     <span class="price" id="lineTotal"></span>
+     <button class="btn primary" id="btnAddToOrder">ADD TO MY ORDER</button>
+   </div>
+   <div class="row" id="addStrip" style="display:none"><button class="btn gold" id="btnContinueBrowse">Continue Browsing</button><button class="btn primary" id="btnReviewOrder">Review My Order →</button></div>
+   ${readOnlyMenu?'<div class="note">Take a seat inside to start an order.</div>':''}
+  `;
+  $('btnBackToMenu').onclick=()=>{$('itemDetail').style.display='none';$('menuItems').style.display='';};
+  if(m.pizza){
+    const sr=$('sizeRow');Object.entries(SIZES).forEach(([k,v])=>{const b=document.createElement('button');b.className='pill'+(k===cust.size?' sel':'');b.textContent=v.label;b.onclick=()=>{cust.size=k;[...sr.children].forEach(c=>c.classList.remove('sel'));b.classList.add('sel');updateDetail(m);};sr.appendChild(b);});
+    const cr=$('crustRow');Object.entries(CRUSTS).forEach(([k,v])=>{const b=document.createElement('button');b.className='pill'+(k===cust.crust?' sel':'');b.textContent=v.label+(v.add?` +${fmt(v.add)}`:'');b.onclick=()=>{cust.crust=k;[...cr.children].forEach(c=>c.classList.remove('sel'));b.classList.add('sel');updateDetail(m);};cr.appendChild(b);});
+    const tr=$('toppingsRow');TOPPINGS.forEach(tp=>{const r=document.createElement('div');r.className='topp';r.innerHTML=`<span><b style="cursor:pointer">${tp.name}</b></span><span style="display:flex;gap:10px;align-items:center"><span style="color:#8a7460;font-size:12px">+${fmt(tp.price)}</span><button class="pill" style="padding:3px 10px">Add</button></span>`;const btn=r.querySelector('button');btn.onclick=()=>{const i=cust.toppings.indexOf(tp.id);if(i>=0){cust.toppings.splice(i,1);btn.textContent='Add';btn.classList.remove('sel');}else{cust.toppings.push(tp.id);btn.textContent='✓';btn.classList.add('sel');}updateDetail(m);};tr.appendChild(r);});
+  }
+  $('qtyMinus').onclick=()=>{cust.qty=Math.max(1,cust.qty-1);$('qtyVal').textContent=cust.qty;updateDetail(m);};
+  $('qtyPlus').onclick=()=>{cust.qty=Math.min(9,cust.qty+1);$('qtyVal').textContent=cust.qty;updateDetail(m);};
+  $('btnAddToOrder').onclick=()=>addToCart(m);
+  $('btnContinueBrowse').onclick=()=>{$('addStrip').style.display='none';$('itemDetail').style.display='none';$('menuItems').style.display='';};
+  $('btnReviewOrder').onclick=()=>{renderCart();setState('cart_review');};
+  updateDetail(m);
+  if(store.tableId&&m.pizza){ // live 3D preview on your table
+    if(previewPizza){scene.remove(previewPizza);}previewPizza=buildPizza({crust:cust.crust,toppings:cust.toppings},.55*SIZES[cust.size].factor);
+    const t=TABLES.find(t=>t.id===store.tableId);previewPizza.position.set(t.x,1.0,t.z);scene.add(previewPizza);
+  }
+}
+function updateDetail(m){
+  const unit=api.unitPrice(m,cust);
+  $('lineTotal').textContent=fmt(unit*cust.qty)+(cust.qty>1?` (${fmt(unit)} each)`:'');
+  if(previewPizza&&m.pizza){const t=TABLES.find(t=>t.id===store.tableId);scene.remove(previewPizza);previewPizza=buildPizza({crust:cust.crust,toppings:cust.toppings},.55*SIZES[cust.size].factor);previewPizza.position.set(t.x,1.0,t.z);scene.add(previewPizza);}
+}
+function addToCartRaw(entry){store.cart.push({...entry,uid:Math.random().toString(36).slice(2)});updateCartBadge();saveSession();chime(980,.12);}
+function addToCart(m){
+  if(readOnlyMenu){showToast('Step inside and take a table to order 🙂');return;}
+  addToCartRaw({itemId:m.id,name:m.name,qty:cust.qty,unit:api.unitPrice(m,cust),options:{size:cust.size,crust:cust.crust,toppings:[...cust.toppings],instructions:$('itemInstr').value},cat:m.cat,pizza:!!m.pizza});
+  showToast('Added to your order ✓');chime(1040,.14);
+  setState('dish_customization');$('addStrip').style.display='';
+}
+// SCENE 7
+function cartTotals(cart){const sub=Math.round(cart.reduce((s,c)=>s+c.unit*c.qty,0)*100)/100;return{sub,tax:Math.round(sub*TAX*100)/100,total:Math.round((sub*(1+TAX))*100)/100};}
+function renderCart(){
+  const w=$('cartList');w.innerHTML='';
+  if(!store.cart.length)w.innerHTML='<p class="sub">Your cart is empty — add something delicious!</p>';
+  store.cart.forEach(c=>{
+    const d=document.createElement('div');d.className='crow';
+    const opts=c.options?(c.options.size?`${SIZES[c.options.size]?.label} · ${CRUSTS[c.options.crust]?.label}`:'')+(c.options.toppings?.length?' · '+c.options.toppings.map(t=>TOPPINGS.find(x=>x.id===t).name).join(', '):''):'';
+    d.innerHTML=`<div class="l"><b>${c.name}</b> × ${c.qty}<div class="o">${opts}${c.instructions?' · 📝 '+c.instructions:''}</div></div>
+    <div style="text-align:right"><div class="p" style="font-size:14px">${fmt(c.unit*c.qty)}</div>
+    <button class="btn ghost small" data-a="minus">−</button> <button class="btn ghost small" data-a="plus">+</button> <button class="btn ghost small" data-a="del">Remove</button></div>`;
+    d.querySelector('[data-a=minus]').onclick=()=>{c.qty>1?c.qty--:store.cart.splice(store.cart.indexOf(c),1);renderCart();updateCartBadge();};
+    d.querySelector('[data-a=plus]').onclick=()=>{c.qty=Math.min(9,c.qty+1);renderCart();updateCartBadge();};
+    d.querySelector('[data-a=del]').onclick=()=>{store.cart.splice(store.cart.indexOf(c),1);renderCart();updateCartBadge();};
+    w.appendChild(d);
+  });
+  const t=cartTotals(store.cart);
+  $('cartTotals').innerHTML=`<div class="tot"><span>Subtotal</span><b>${fmt(t.sub)}</b></div><div class="tot"><span>Tax (${(TAX*100).toFixed(0)}% — final total set by server)</span><b>${fmt(t.tax)}</b></div><div class="tot big"><span>Estimated total</span><b>${fmt(t.total)}</b></div>`;
+  $('btnConfirmOrder').disabled=!store.cart.length;
+}
+async function confirmOrder(){
+  if(!store.cart.length)return;
+  setState('order_submitting');busy(true,'Validating & sending to kitchen…');
+  try{
+    const order=await api.submitOrder(store.cart);
+    store.orders.push(order);store.cart=[];updateCartBadge();busy(false);chime(660,.2);chime(880,.25);
+    setState('order_confirmed');
+    $('orderNum').textContent=order.ref;$('orderEta').textContent='~'+order.etaMin+' min';
+    saveSession();
+  }catch(e){busy(false);
+    if(e.items){store.cart=store.cart.filter(c=>!e.items.includes(c.name));updateCartBadge();renderCart();showToast('Sorry — just sold out: '+e.items.join(', ')+'. We removed it; pick an alternative!');}
+    else showToast('Something went wrong sending the order. Please try again.');
+    setState('cart_review');
+  }
+}
+// SCENES 8 & 9
+async function kitchenSeq(){
+  const order=store.orders[store.orders.length-1];if(!order)return;
+  setState('kitchen_preparing');kitchenActive=true;skipWaitFlag=false;
+  $('kSteps').innerHTML=['Order Received','Preparing Your Food','Cooking in the Wood Oven','Ready to Serve'].map((s,i)=>`<li id="ks${i}">${s}</li>`).join('');
+  if(!reduced){await cameraTo(.9,1.6,.7,-4,1.15,-4.6,1500);setTimeout(()=>{if(store.state==='kitchen_preparing'||store.state==='ready_to_serve')cameraTo(SEAT.pos.x,SEAT.pos.y,SEAT.pos.z,SEAT.tgt.x,SEAT.tgt.y,SEAT.tgt.z,1400);},2800);}
+  const steps=[[0,1600],[3600,5200],[9000,5600]];
+  let el=0;const total=14800;
+  for(let i=0;i<3;i++){
+    const[s,d]=steps[i];while(el<s&&!skipWaitFlag){await delay(120);el+=120;}
+    $('ks'+i).className='done';$('ks'+(i+1)).className='act';
+    while(el<s+d&&!skipWaitFlag){await delay(120);el+=120;$('kBar').style.width=Math.min(100,el/total*100)+'%';}
+    if(skipWaitFlag){el=total;$('kBar').style.width='100%';for(let k=0;k<3;k++)$('ks'+k).className='done';break;}
+  }
+  $('ks3').className='act';$('kBar').style.width='100%';
+  await delay(skipWaitFlag?200:900);
+  kitchenActive=false;order.status='ready';
+  setState('ready_to_serve');
+  await serveSeq(order);
+}
+async function serveSeq(order){
+  setState('serving');skipServeFlag=false;$('skipServe').style.display='';following=true;
+  const t=TABLES.find(t=>t.id===store.tableId);
+  if(t){ // carry tray with the first pizza
+    while(tray.children.length>2)tray.remove(tray.children[2]);
+    const fp=order.items.find(i=>i.pizza);
+    if(fp)tray.add(buildPizza({crust:fp.options?.crust||'classic',toppings:fp.options?.toppings||[]},.16*(SIZES[fp.options?.size||'medium']?.factor||1)));
+    tray.visible=true;
+  }
+  cameraTo(.8,1.55,1.2,-3,1.1,-4.6,1300);
+  const laneX=t.x<-1.5?-3.2:t.x>1.5?3.2:(t.x<0?-3.2:3.2);
+  const pts=[[-3.4,-4.2],[laneX,-1],[laneX,Math.min(t.z+2.3,6.2)],[t.x,t.z+t.topR+1.15]];
+  const walk=walkWaiter(pts,1.9);
+  const timeout=new Promise(r=>{const iv=setInterval(()=>{if(skipServeFlag){clearInterval(iv);r();}},100);setTimeout(()=>{clearInterval(iv);r();},15000);});
+  await Promise.race([walk,timeout]);
+  if(skipServeFlag){waiterNPC.position.set(t.x,0,t.z+t.topR+1.15);faceCam(waiterNPC);}
+  tray.visible=false;following=false;
+  let slot=servedMeshes.filter(m=>!m.isGroup).length; // rough slot bookkeeping
+  order.items.forEach((it,i)=>placeDish(it,i));order.status='served';
+  cameraTo(SEAT.pos.x,SEAT.pos.y,SEAT.pos.z,SEAT.tgt.x,SEAT.tgt.y,SEAT.tgt.z,1500);
+  $('skipServe').style.display='none';chime(760,.15);announce('Your food has been served at your table.');
+  setState('dining');
+  showDialogue("Here you are! Fresh from our kitchen. Enjoy your meal!",[
+    {label:'Enjoy My Meal',fn:()=>{setState('dining');walkWaiter([[3.3,3.7]]);}},
+    {label:'Order Something Else',fn:()=>openMenu()},
+    {label:'Request Assistance',fn:assistDialogue},
+  ]);
+  saveSession();
+}
+// SCENE 10
+async function assistDialogue(){
+  const t=TABLES.find(t=>t.id===store.tableId);following=true;await waiterToTable(t);following=false;faceCam(waiterNPC);
+  showDialogue('Of course. What can I help you with?',[
+    {label:'Bring Water',fn:bringWater},{label:'Request Napkins',fn:bringNapkins},
+    {label:'Ask About Ingredients',fn:()=>{const last=store.orders.flatMap(o=>o.items).slice(-1)[0];const m=last&&MENU.find(m=>m.id===last.itemId);showToast(m?`${m.name} — allergens: ${m.allerg}. Ask Marco about anything!`:'Ask me about any dish!');setState('dining');walkWaiter([[3.3,3.7]]);}},
+    {label:'Request the Bill',fn:requestBill},
+  ]);
+}
+async function bringWater(){
+  setState('dining');showToast('Marco is bringing fresh water…');
+  const t=TABLES.find(t=>t.id===store.tableId);
+  const gl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.045,.18,10),new THREE.MeshStandardMaterial({color:0xbfe4ee,transparent:true,opacity:.55,roughness:.1}));gl.position.set(t.x+.5,1.04,t.z-.3);gl.castShadow=true;scene.add(gl);servedMeshes.push(gl);
+  await walkWaiter([[t.x,t.z+t.topR+1.15]]);chime(1200,.1);showToast('Water served 💧');walkWaiter([[3.3,3.7]]);
+}
+function bringNapkins(){setState('dining');showToast('Napkins brought 🧻');chime(900,.08);}
+// SCENE 11
+async function requestBill(){
+  setState('bill_requested');
+  const t=TABLES.find(t=>t.id===store.tableId);following=true;await waiterToTable(t);following=false;faceCam(waiterNPC);
+  showDialogue('I hope you enjoyed your meal! Shall I prepare your bill?',[
+    {label:'Yes, Show My Bill',fn:async()=>{busy(true,'Preparing your bill…');try{store.bill=await api.createBill(store.orders,store.bill?.tipPct||0);busy(false);setState('bill_review');renderBill();}catch(e){busy(false);showToast('Could not prepare the bill — please try again.');setState('dining');}}},
+    {label:'Order More',fn:()=>openMenu()},
+    {label:'Not Yet',fn:()=>{setState('dining');walkWaiter([[3.3,3.7]]);}},
+  ]);
+}
+function renderBill(){
+  const b=store.bill;if(!b)return;
+  $('billRef').textContent=`${b.ref} · Table ${String(store.tableId).padStart(2,'0')} · Session ${store.sessionRef||'—'}`;
+  const w=$('billList');w.innerHTML='';let n=0;
+  store.orders.forEach(o=>o.items.forEach(it=>{const d=document.createElement('div');d.className='crow';d.innerHTML=`<div class="l"><b>${it.name}</b> × ${it.qty}${it.options?.size?` <span class="o">(${SIZES[it.options.size].label})</span>`:''}</div><div class="p" style="font-size:14px">${fmt(it.total)}</div>`;w.appendChild(d);n++;}));
+  if(!n)w.innerHTML='<p class="sub">No items on this bill yet.</p>';
+  const tr=$('tipRow');tr.innerHTML='';[0,.1,.15,.2].forEach(p=>{const bt=document.createElement('button');bt.className='pill'+(b.tipPct===p?' sel':'');bt.textContent=p?p*100+'%':'No tip';bt.onclick=async()=>{b.tipPct=p;busy(true,'Updating bill…');store.bill=await api.createBill(store.orders,p);busy(false);renderBill();};tr.appendChild(bt);});
+  $('billTotals').innerHTML=`<div class="tot"><span>Subtotal</span><b>${fmt(b.subtotal)}</b></div><div class="tot"><span>Tax (${(TAX*100).toFixed(0)}%)</span><b>${fmt(b.tax)}</b></div><div class="tot"><span>Service (${(SERVICE*100).toFixed(0)}%)</span><b>${fmt(b.service)}</b></div><div class="tot"><span>Tip (${((b.tipPct||0)*100).toFixed(0)}%)</span><b>${fmt(b.tip)}</b></div><div class="tot big"><span>Total payable</span><b>${fmt(b.total)}</b></div>`;
+  saveSession();
+}
+// SCENE 12
+let payMethod='card';
+function setPayMethod(m){payMethod=m;[...$('payMethods').children].forEach(b=>b.classList.toggle('sel',b.dataset.m===m));$('cardForm').style.display=m==='card'?'':'none';$('cashNote').style.display=m==='cash'?'':'none';$('payStatus').textContent='';$('btnPaySubmit').textContent=m==='cash'?'Place as Pending':'Pay Securely';}
+async function payNow(){
+  const b=store.bill;if(!b)return;
+  $('payStatus').textContent='';$('payStatus').style.color='';
+  if(payMethod==='card'){
+    const num=$('cardNum').value.replace(/\s/g,''),exp=$('cardExp').value,cvc=$('cardCvc').value,name=$('cardName').value.trim();
+    if(name.length<2)return payErr('Please enter the name on the card.');
+    if(!/^\d{16}$/.test(num))return payErr('Card number must be 16 digits.');
+    if(!/^(0[1-9]|1[0-2])\/\d{2}$/.test(exp))return payErr('Expiry must be MM/YY.');
+    if(!/^\d{3}$/.test(cvc))return payErr('CVV must be 3 digits.');
+  }
+  setState('payment_processing');busy(true, payMethod==='cash'?'Placing as pending…':'Contacting payment provider…');
+  try{
+    const res=await api.processPayment(b,payMethod,{cvc:$('cardCvc').value});
+    b.status='paid';b.payRef=res.payRef;b.method=payMethod;busy(false);chime(660,.15);chime(990,.3);
+    buildReceipt();setState('payment_success');saveSession();
+  }catch(e){busy(false);chime(220,.3,'sawtooth',.05);
+    if(e.code==='DECLINED'){setState('payment_failed');$('payStatus').style.color='var(--red)';$('payStatus').textContent='✕ We couldn\'t complete your payment. Your bill is intact — you can retry or choose another method.';}
+    else{setState('payment_failed');$('payStatus').textContent='Connection issue — please try again.';}
+  }
+}
+function payErr(m){$('payStatus').style.color='var(--red)';$('payStatus').textContent='✕ '+m;}
+function buildReceipt(){
+  const b=store.bill;const lines=[];
+  lines.push('        FORNO VIVO','   Pizzeria Napoletana','   12 Via del Forno, Sample City','-'.repeat(38),`Bill:    ${b.ref}`,`Table:   ${String(store.tableId).padStart(2,'0')}  ·  Session ${store.sessionRef}`,`Date:    ${new Date().toLocaleString()}`,'-'.repeat(38));
+  store.orders.forEach(o=>o.items.forEach(it=>{lines.push(`${it.name} x${it.qty}`.padEnd(26)+fmt(it.total).padStart(12));if(it.options?.size)lines.push(`   ${SIZES[it.options.size].label} · ${CRUSTS[it.options.crust]?.label}`);if(it.options?.toppings?.length)lines.push('   + '+it.options.toppings.join(', '));if(it.instructions)lines.push('   note: '+it.instructions);}));
+  lines.push('-'.repeat(38),`Subtotal`.padEnd(26)+fmt(b.subtotal).padStart(12),`Tax ${(TAX*100).toFixed(0)}%`.padEnd(26)+fmt(b.tax).padStart(12),`Service ${(SERVICE*100).toFixed(0)}%`.padEnd(26)+fmt(b.service).padStart(12),`Tip ${((b.tipPct||0)*100).toFixed(0)}%`.padEnd(26)+fmt(b.tip).padStart(12),'='.repeat(38),`TOTAL PAID`.padEnd(26)+fmt(b.total).padStart(12),`Method:  ${b.method.toUpperCase()}   Ref: ${b.payRef}`,'-'.repeat(38),'   Grazie! Come back hungry. 🍕');
+  store.receipt=lines.join('\n');
+  $('receiptSub').textContent=`${fmt(b.total)} paid · Receipt ${b.ref} · Payment ${b.payRef}`;
+  $('receiptBody').textContent=store.receipt;
+}
+function downloadReceipt(){if(!store.receipt)return;const bl=new Blob([store.receipt],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=`FornoVivo-Receipt-${store.bill.ref}.txt`;a.click();URL.revokeObjectURL(a.href);}
+// SCENE 13
+async function exitRestaurant(){
+  if(!store.bill||store.bill.status!=='paid'){ // Scenario G guard
+    showDialogue('It looks like your bill is still open. We\'d be happy to settle it before you go!',[
+      {label:'Go to Checkout',fn:()=>requestBill()},{label:'Continue Dining',fn:()=>setState('dining')},
+    ]);return;
+  }
+  setState('exiting');hidePanels();
+  showDialogue('Thank you for visiting Forno Vivo! We hope to see you again soon. A presto! 🍷',[{label:'Farewell!',fn:()=>{}}]);
+  await delay(1400);hidePanels();
+  following=true;await walkWaiter([[0,5.5]]);following=false;
+  await cameraTo(0,1.7,4.6,0,1.8,7,1500);
+  await doorTo(-1.9);chime(300,.25,'sine',.05);
+  await cameraTo(0,2.1,9.5,0,2.6,7,1600);
+  await doorTo(0);
+  cleanup();setState('visit_completed');chime(520,.4,'triangle');
+}
+function cleanup(){
+  clearServed();if(previewPizza){scene.remove(previewPizza);previewPizza=null;}
+  for(const t of TABLES){t.status=(t.id===3||t.id===7)?'occupied':(t.id===9?'unavailable':'available');setIndicator(t);}
+  waiterNPC.position.set(3.3,0,3.7);tray.visible=false;
+  store.tableId=null;store.sessionRef=null;store.cart=[];store.orders=[];store.bill=null;updateCartBadge();
+  clearSession();
+}
+async function backOutside(){
+  camera.position.set(0,2.4,24);camTarget.set(0,2.4,7);setState('outside');
+}
+
+/* ============ wiring ============ */
+ $('btnEnter').onclick=enterRestaurant;
+ $('btnViewMenu').onclick=()=>{openMenu();};
+ $('menuClose').onclick=()=>{hidePanels();if(!store.tableId)showPanel('introPanel');};
+ $('btnCloseSpecials').onclick=()=>{hidePanels();store.state==='welcome'?showPanel('dialoguePanel'):null;};
+ $('guestsMinus').onclick=()=>{store.guests=Math.max(1,store.guests-1);$('guestsVal').textContent=store.guests;};
+ $('guestsPlus').onclick=()=>{store.guests=Math.min(8,store.guests+1);$('guestsVal').textContent=store.guests;};
+ $('btnConfirmTable').onclick=confirmTable;
+ $('btnBackToWelcome').onclick=()=>{setState('welcome');waiterGreet();};
+ $('btnConfirmOrder').onclick=confirmOrder;
+ $('btnAddMoreDishes').onclick=()=>openMenu();
+ $('btnCloseCart').onclick=()=>{store.tableId?(setState('dining')):openMenu();};
+ $('btnWatchKitchen').onclick=kitchenSeq;
+ $('btnBrowseMore').onclick=()=>openMenu();
+ $('btnSkipWait').onclick=()=>{skipWaitFlag=true;};
+ $('skipServe').onclick=()=>{skipServeFlag=true;};
+ $('btnMenuDine').onclick=()=>openMenu();
+ $('btnMenuTop').onclick=()=>{store.tableId?openMenu():openMenu();};
+ $('btnWater').onclick=bringWater;
+ $('btnNapkin').onclick=bringNapkins;
+ $('btnAssist').onclick=assistDialogue;
+ $('btnBill').onclick=requestBill;
+ $('btnBillTop').onclick=()=>{if(store.bill&&store.bill.status==='unpaid'){setState('bill_review');renderBill();}else if(store.orders.length){requestBill();}};
+ $('btnCartTop').onclick=()=>{if(store.cart.length||store.state==='cart_review'){renderCart();setState('cart_review');}else showToast('Your cart is empty — browse the menu!');};
+ $('btnKeepDining').onclick=()=>setState('dining');
+ $('btnPayNow').onclick=()=>{$('payAmount').textContent=fmt(store.bill.total);setState('payment_processing');setPayMethod(payMethod);};
+ $('payMethods').onclick=e=>{const b=e.target.closest('[data-m]');if(b)setPayMethod(b.dataset.m);};
+ $('btnPaySubmit').onclick=async()=>{
+  if(payMethod==='cash'&&store.bill.status==='pending'){ // staff confirm simulation
+    store.bill.status='paid';store.bill.payRef='CASH-'+Math.random().toString(36).slice(2,8).toUpperCase();store.bill.method='cash';chime(660,.15);buildReceipt();setState('payment_success');saveSession();return;
+  }
+  if(payMethod==='cash'){store.bill.status='pending';$('payStatus').textContent='⏳ Bill marked pending — waiting for staff to confirm cash receipt.';$('btnPaySubmit').textContent='Simulate: staff received cash';saveSession();return;}
+  payNow();
+};
+ $('btnBackToBill').onclick=()=>{setState('bill_review');renderBill();};
+ $('btnDownloadReceipt').onclick=downloadReceipt;
+ $('btnLeaveAfterPay').onclick=exitRestaurant;
+ $('btnCloseReceipt').onclick=()=>{hidePanels();if(store.state==='payment_success')setState('payment_success');};
+ $('btnExitTop').onclick=()=>exitRestaurant();
+ $('btnNewVisit').onclick=()=>{backOutside();chime(520,.3,'triangle');};
+ $('btnViewReceipt2').onclick=()=>{buildReceipt();showPanel('receiptPanel');$('btnCloseReceipt').onclick=()=>{hidePanels();if(store.state==='visit_completed')showPanel('farewellPanel');};};
+ $('btnSound').onclick=()=>{audioOn=!audioOn;$('btnSound').textContent=audioOn?'🔊':'🔇';};
+ $('cardNum').addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,16).replace(/(\d{4})(?=\d)/g,'$1 ');});
+ $('cardExp').addEventListener('input',e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v;});
+ $('cardCvc').addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,3);});
+
+/* ============ SEO HTML menu (crawlable without WebGL) ============ */
+(function(){const w=$('htmlMenu');let h='';CATS.forEach(([cid,cn])=>{h+=`<h3>${cn}</h3><ul>`;MENU.filter(m=>m.cat===cid).forEach(m=>h+=`<li>${m.name} — ${fmt(m.price)} · ${m.desc}</li>`);h+='</ul>';});w.innerHTML=h;})();
+
+/* ============ boot ============ */
+TABLES.forEach(setIndicator);
+setState('outside');
+camera.position.set(0,2.4,24);camTarget.set(0,2.4,7);
+offerResume();
+</script>
+</body>
+</html>
